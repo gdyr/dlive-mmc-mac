@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+  <title>MMC-Mac</title>
+
+  <link rel="stylesheet" href="style.css" />
+
+  <script src="bower_components/jquery/dist/jquery.min.js" onload="if(!window.$) { window.$ = window.jQuery = module.exports; }"></script>
+
+  <script>
+
+    var EventEmitter = require('events');
+    var midi = new EventEmitter();
+    var messages = {
+      5: 'prev',
+      4: 'next',
+      1: 'stop',
+      2: 'playpause',
+      9: 'playpause',
+      6: 'record'
+    };
+
+    function ValidateIPaddress(ipaddress) {  
+      if (/^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(ipaddress)) {  
+        return (true)  
+      }
+      return (false)  
+    }  
+
+    var net = require('net');
+    var client;
+    function reconnect(silent) {
+
+      if(client && client.writable) {
+        client.destroy();
+        $("#ip").removeAttr('disabled');
+        $("#connect").val('Connect');
+        return;
+      }
+
+      var ip = $('#ip').val();
+      if(!ValidateIPaddress(ip)) {
+        if(!silent) { alert('Invalid IP address!'); }
+        return;
+      }
+
+      client = new net.Socket();
+
+      client.connect({
+        host: ip,
+        port: 51325
+      }, () => {
+        window.localStorage.ip = ip;
+        $("#ip").attr('disabled', 'disabled');
+        $("#connect").val('Disconnect');
+      });
+
+      client.on('error', function(err) {
+        console.error(err);
+        alert('Failed to connect to dLive!');
+        client.destroy();
+      })
+
+      client.on('data', function(data) {
+
+        console.log('lol');
+
+        // MMC message
+        if(data[0] == 240 && data[1] == 127 && data[3] == 6 && data[5] == 247) {
+          midi.emit(messages[data[4]]);
+        }
+      })
+
+    };
+
+    var applescript = require('applescript');
+    function tellHandler(cmd) {
+      return function() {
+        console.log('trying to ', cmd);
+        applescript.execString(`
+          tell application "Spotify"
+              `+cmd+`
+          end tell
+        `);
+      }
+    }
+
+    midi.on('playpause', tellHandler('playpause'));
+    midi.on('next', tellHandler('next track'));
+    midi.on('prev', tellHandler('previous track'));
+    midi.on('stop', tellHandler('pause'));
+
+    // When ready
+    $(function() {
+
+      // Recall IP from last successful connection
+      $("#ip").val(window.localStorage.ip);
+
+      // Attach connect button
+      $("#connect").click(() => { reconnect(); });
+
+    });
+
+  </script>
+
+</head>
+<body>
+
+  <script src="http://localhost:35729/livereload.js?snipver=1"></script>
+
+  <div id="app">
+
+    <div class="dark top">dLive MMC for Mac</div>
+
+    <div class="dark bottom" style="color: #666; font-size: 80%;">
+      &copy; 2018 Michael Goodyear &lt;m@gdyr.co&gt;
+    </div>
+
+    <div style="padding: 23px; text-align: center;">
+
+      <input class="input" type="text" id="ip" placeholder="IP Address" />
+      <input class="button" id="connect" type="button" value="Connect" />
+
+    </div>
+
+  </div>
+
+</body>
+</html>

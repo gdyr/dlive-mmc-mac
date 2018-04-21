@@ -1,0 +1,12 @@
+{
+  "name": "mmc-mac",
+  "main": "index.html",
+  "window": {
+    "frame": false,
+    "toolbar": false,
+    "resizable": false,
+    "transparent": true,
+    "width": 400,
+    "height": 150
+  }
+}
